@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>YouTube Study</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="input-panel">
+        <div>
+          <p class="eyebrow">Local YouTube Analyzer</p>
+          <h1>YouTube 장면 캡처와 자막 저장</h1>
+          <p class="summary">링크를 넣으면 브라우저가 영상을 재생하며 바뀐 장면만 이미지로 저장하고, 선택한 자막을 Markdown으로 저장합니다.</p>
+        </div>
+
+        <form id="job-form" class="job-form">
+          <label class="field">
+            <span>YouTube URL</span>
+            <input id="youtube-url" name="url" type="url" placeholder="https://www.youtube.com/watch?v=..." required />
+          </label>
+
+          <fieldset class="language-group">
+            <legend>자막 언어</legend>
+            <div class="checkbox-grid">
+              {% for language in language_options %}
+              <label class="checkbox-item">
+                <input type="checkbox" name="subtitle_languages" value="{{ language }}" {% if language in ["ko", "en"] %}checked{% endif %} />
+                <span>{{ language }}</span>
+              </label>
+              {% endfor %}
+            </div>
+          </fieldset>
+
+          <button id="submit-button" type="submit">분석 시작</button>
+        </form>
+      </section>
+
+      <section class="status-panel" aria-live="polite">
+        <div class="status-header">
+          <div>
+            <p class="eyebrow">Progress</p>
+            <h2 id="status-title">대기 중</h2>
+          </div>
+          <span id="status-pill" class="status-pill">ready</span>
+        </div>
+        <p id="status-message" class="status-message">YouTube 링크를 입력하고 분석을 시작하세요.</p>
+        <p id="job-id" class="job-id"></p>
+        <div class="progress-block">
+          <div class="progress-track" aria-label="작업 진행률">
+            <div id="progress-fill" class="progress-fill"></div>
+          </div>
+          <div class="progress-meta">
+            <span id="progress-percent">0%</span>
+            <span id="time-estimate">경과 0초 · 예상 시간 계산 전</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="results-layout">
+        <div class="result-section">
+          <div class="section-heading">
+            <h2>캡처 이미지</h2>
+            <span id="image-count">0</span>
+          </div>
+          <div id="image-grid" class="image-grid"></div>
+        </div>
+
+        <div class="result-section">
+          <div class="section-heading">
+            <h2>자막 Markdown</h2>
+            <span id="subtitle-count">0</span>
+          </div>
+          <div id="subtitle-list" class="subtitle-list"></div>
+        </div>
+      </section>
+    </main>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>
