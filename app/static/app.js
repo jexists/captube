@@ -13,6 +13,7 @@ const subtitleList = document.querySelector("#subtitle-list");
 const subtitleCount = document.querySelector("#subtitle-count");
 
 let pollTimer = null;
+const subtitlePreviewCache = new Map();
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -204,7 +205,11 @@ function renderSubtitles(subtitles) {
       link.target = "_blank";
       link.rel = "noreferrer";
       link.textContent = `${subtitle.language} Markdown 열기`;
-      item.append(link);
+      const preview = document.createElement("pre");
+      preview.className = "subtitle-preview";
+      preview.textContent = "자막을 불러오는 중입니다...";
+      item.append(link, preview);
+      loadSubtitlePreview(subtitle.url, preview);
     } else {
       item.textContent = `${subtitle.language}: ${subtitle.error}`;
     }
@@ -213,8 +218,28 @@ function renderSubtitles(subtitles) {
   }
 }
 
+async function loadSubtitlePreview(url, previewElement) {
+  try {
+    if (subtitlePreviewCache.has(url)) {
+      previewElement.textContent = subtitlePreviewCache.get(url);
+      return;
+    }
+
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    const text = await response.text();
+    subtitlePreviewCache.set(url, text);
+    previewElement.textContent = text;
+  } catch (error) {
+    previewElement.textContent = `자막을 불러오지 못했습니다. ${String(error)}`;
+  }
+}
+
 function clearResults() {
   setProgress(0, 0, null);
+  subtitlePreviewCache.clear();
   renderScenes([], []);
   renderSubtitles([]);
 }
