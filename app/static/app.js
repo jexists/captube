@@ -11,9 +11,44 @@ const imageGrid = document.querySelector("#image-grid");
 const imageCount = document.querySelector("#image-count");
 const subtitleList = document.querySelector("#subtitle-list");
 const subtitleCount = document.querySelector("#subtitle-count");
+const sceneViewer = document.querySelector("#scene-viewer");
+const viewerCounter = document.querySelector("#viewer-counter");
+const viewerTitle = document.querySelector("#viewer-title");
+const viewerImage = document.querySelector("#viewer-image");
+const viewerCaption = document.querySelector("#viewer-caption");
+const viewerPrev = document.querySelector("#viewer-prev");
+const viewerNext = document.querySelector("#viewer-next");
+const viewerClose = document.querySelector("#viewer-close");
 
 let pollTimer = null;
+let currentScenes = [];
+let activeSceneIndex = 0;
 const subtitlePreviewCache = new Map();
+
+viewerClose.addEventListener("click", closeSceneViewer);
+viewerPrev.addEventListener("click", () => showScene(activeSceneIndex - 1));
+viewerNext.addEventListener("click", () => showScene(activeSceneIndex + 1));
+sceneViewer.addEventListener("click", (event) => {
+  if (event.target === sceneViewer) {
+    closeSceneViewer();
+  }
+});
+
+document.addEventListener("keydown", (event) => {
+  if (!sceneViewer.classList.contains("is-open")) {
+    return;
+  }
+
+  if (event.key === "Escape") {
+    closeSceneViewer();
+  }
+  if (event.key === "ArrowLeft") {
+    showScene(activeSceneIndex - 1);
+  }
+  if (event.key === "ArrowRight") {
+    showScene(activeSceneIndex + 1);
+  }
+});
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -125,6 +160,12 @@ function renderScenes(scenes, fallbackUrls) {
         captions_by_language: {},
       }));
 
+  currentScenes = normalizedScenes;
+  if (sceneViewer.classList.contains("is-open")) {
+    activeSceneIndex = Math.min(activeSceneIndex, Math.max(currentScenes.length - 1, 0));
+    updateSceneViewer();
+  }
+
   imageCount.textContent = String(normalizedScenes.length);
   imageGrid.innerHTML = "";
   if (!normalizedScenes.length) {
@@ -138,8 +179,11 @@ function renderScenes(scenes, fallbackUrls) {
 
     const link = document.createElement("a");
     link.href = scene.image_url;
-    link.target = "_blank";
-    link.rel = "noreferrer";
+    link.setAttribute("aria-label", "큰 화면으로 캡처 이미지 보기");
+    link.addEventListener("click", (event) => {
+      event.preventDefault();
+      openSceneViewer(currentScenes.indexOf(scene));
+    });
     const image = document.createElement("img");
     image.src = scene.image_url;
     image.alt = "Captured scene";
@@ -155,6 +199,77 @@ function renderScenes(scenes, fallbackUrls) {
     card.append(link, label, renderSceneCaptions(scene.captions_by_language || {}));
     imageGrid.append(card);
   }
+}
+
+function openSceneViewer(index) {
+  if (!currentScenes.length) {
+    return;
+  }
+  activeSceneIndex = Math.min(Math.max(index, 0), currentScenes.length - 1);
+  sceneViewer.classList.add("is-open");
+  sceneViewer.setAttribute("aria-hidden", "false");
+  document.body.classList.add("viewer-open");
+  updateSceneViewer();
+  viewerClose.focus();
+}
+
+function closeSceneViewer() {
+  sceneViewer.classList.remove("is-open");
+  sceneViewer.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("viewer-open");
+}
+
+function showScene(index) {
+  if (!currentScenes.length) {
+    return;
+  }
+  activeSceneIndex = (index + currentScenes.length) % currentScenes.length;
+  updateSceneViewer();
+}
+
+function updateSceneViewer() {
+  if (!currentScenes.length) {
+    closeSceneViewer();
+    return;
+  }
+
+  const scene = currentScenes[activeSceneIndex];
+  const fileName = scene.image_url.split("/").pop();
+  const timeLabel = scene.timestamp_seconds === null || scene.timestamp_seconds === undefined
+    ? ""
+    : `${formatDuration(scene.timestamp_seconds)} · `;
+
+  viewerCounter.textContent = `${activeSceneIndex + 1} / ${currentScenes.length}`;
+  viewerTitle.textContent = `${timeLabel}${fileName}`;
+  viewerImage.src = scene.image_url;
+  viewerCaption.innerHTML = "";
+  viewerCaption.append(renderViewerCaptions(scene.captions_by_language || {}));
+}
+
+function renderViewerCaptions(captionsByLanguage) {
+  const wrapper = document.createElement("div");
+  wrapper.className = "viewer-captions";
+  const entries = Object.entries(captionsByLanguage).filter(([, text]) => text);
+
+  if (!entries.length) {
+    const empty = document.createElement("p");
+    empty.className = "viewer-caption-line empty";
+    empty.textContent = "이 순간에 겹치는 자막이 없습니다.";
+    wrapper.append(empty);
+    return wrapper;
+  }
+
+  for (const [language, text] of entries) {
+    const line = document.createElement("p");
+    line.className = "viewer-caption-line";
+    const badge = document.createElement("strong");
+    badge.textContent = language;
+    const body = document.createElement("span");
+    body.textContent = text;
+    line.append(badge, body);
+    wrapper.append(line);
+  }
+  return wrapper;
 }
 
 function renderSceneCaptions(captionsByLanguage) {

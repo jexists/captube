@@ -78,6 +78,27 @@
       </section>
     </main>
 
+    <div id="scene-viewer" class="scene-viewer" aria-hidden="true">
+      <div class="scene-viewer__panel" role="dialog" aria-modal="true" aria-label="캡처 이미지 보기">
+        <div class="scene-viewer__topbar">
+          <div>
+            <p id="viewer-counter" class="scene-viewer__counter">0 / 0</p>
+            <h2 id="viewer-title">캡처 이미지</h2>
+          </div>
+          <button id="viewer-close" class="viewer-icon-button" type="button" aria-label="닫기">×</button>
+        </div>
+
+        <div class="scene-viewer__body">
+          <button id="viewer-prev" class="viewer-nav viewer-nav--prev" type="button" aria-label="이전 이미지">‹</button>
+          <figure class="scene-viewer__figure">
+            <img id="viewer-image" src="" alt="Selected captured scene" />
+            <figcaption id="viewer-caption" class="scene-viewer__caption"></figcaption>
+          </figure>
+          <button id="viewer-next" class="viewer-nav viewer-nav--next" type="button" aria-label="다음 이미지">›</button>
+        </div>
+      </div>
+    </div>
+
     <script src="/static/app.js"></script>
   </body>
 </html>
