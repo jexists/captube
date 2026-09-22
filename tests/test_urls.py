@@ -7,6 +7,12 @@ def test_normalize_watch_url_removes_playlist_parameters():
     assert normalize_youtube_url(url) == "https://www.youtube.com/watch?v=OkTyY28XMuQ"
 
 
+def test_normalize_watch_url_removes_timestamp_parameter():
+    url = "https://www.youtube.com/watch?v=zpMHGnSAusI&t=338s"
+
+    assert normalize_youtube_url(url) == "https://www.youtube.com/watch?v=zpMHGnSAusI"
+
+
 def test_normalize_short_url_to_watch_url():
     url = "https://youtu.be/OkTyY28XMuQ?si=abc123"
 

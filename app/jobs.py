@@ -119,18 +119,12 @@ class JobManager:
                     self._add_subtitle_result(job, result, failure),
                 )
 
-            subtitle_task = asyncio.to_thread(
-                extract_subtitles_to_markdown,
-                job.url,
-                job.subtitle_languages,
-                job.output_dir,
-                subtitle_result,
-            )
-            capture_task = capture_changed_scenes(
-                job.url,
-                job.output_dir,
-                progress_callback=progress,
-                scene_callback=scene_saved,
+            subtitle_task = self._extract_subtitles_for_job(job, subtitle_result)
+            capture_task = self._capture_scenes_for_job(
+                job,
+                loop,
+                progress,
+                scene_saved,
             )
 
             capture_result, subtitle_result = await asyncio.gather(capture_task, subtitle_task)
@@ -148,10 +142,69 @@ class JobManager:
             async with self._lock:
                 job.status = JobStatus.FAILED
                 job.message = "Analysis failed."
-                job.error = str(exc)
+                job.error = _format_exception(exc)
                 job.eta_seconds = None
                 if job.started_at is not None:
                     job.elapsed_seconds = int(time.monotonic() - job.started_at)
+
+    async def _extract_subtitles_for_job(
+        self,
+        job: Job,
+        result_callback,
+    ) -> tuple[list[SubtitleFile], list[SubtitleFailure]]:
+        try:
+            return await asyncio.to_thread(
+                extract_subtitles_to_markdown,
+                job.url,
+                job.subtitle_languages,
+                job.output_dir,
+                result_callback,
+            )
+        except Exception as exc:
+            failures = [
+                SubtitleFailure(language=language, error=str(exc))
+                for language in job.subtitle_languages
+            ]
+            for failure in failures:
+                result_callback(None, failure)
+            return [], failures
+
+    async def _capture_scenes_for_job(
+        self,
+        job: Job,
+        loop: asyncio.AbstractEventLoop,
+        progress_callback,
+        scene_callback,
+    ) -> object:
+        def run_capture() -> object:
+            async def progress_from_capture(
+                message: str,
+                progress_percent: int | None = None,
+                eta_seconds: int | None = None,
+            ) -> None:
+                future = asyncio.run_coroutine_threadsafe(
+                    progress_callback(message, progress_percent, eta_seconds),
+                    loop,
+                )
+                await asyncio.wrap_future(future)
+
+            async def scene_from_capture(scene: CapturedScene, replace_previous: bool) -> None:
+                future = asyncio.run_coroutine_threadsafe(
+                    scene_callback(scene, replace_previous),
+                    loop,
+                )
+                await asyncio.wrap_future(future)
+
+            return asyncio.run(
+                capture_changed_scenes(
+                    job.url,
+                    job.output_dir,
+                    progress_callback=progress_from_capture,
+                    scene_callback=scene_from_capture,
+                )
+            )
+
+        return await asyncio.to_thread(run_capture)
 
     async def _add_scene(self, job: Job, scene: CapturedScene, replace_previous: bool) -> None:
         scene_result = SceneResult(
@@ -223,3 +276,18 @@ class JobManager:
 
 
 job_manager = JobManager()
+
+
+def _format_exception(exc: Exception) -> str:
+    message = str(exc).strip()
+    exc_type = type(exc).__name__
+    if message:
+        return f"{exc_type}: {message}"
+    cause = exc.__cause__ or exc.__context__
+    if cause is not None:
+        cause_message = str(cause).strip()
+        cause_type = type(cause).__name__
+        if cause_message:
+            return f"{exc_type}: caused by {cause_type}: {cause_message}"
+        return f"{exc_type}: caused by {cause_type}"
+    return exc_type
